@@ -1,0 +1,10 @@
+package xyzLdr;
+
+struct xyzLidar_t
+{
+	int64_t timestamp;
+	double x;
+	double y;
+	double z;
+	int64_t quality;
+}

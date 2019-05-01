@@ -1,0 +1,8 @@
+package mtrcmnd;
+
+struct motorCommand_t
+{
+	boolean motor;
+	float speed;
+	boolean feedback;
+}

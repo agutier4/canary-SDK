@@ -1,0 +1,8 @@
+package snsrdata;
+
+struct sensorData_t
+{
+	float pos_x;
+	float pos_y;
+	float pos_z;
+}

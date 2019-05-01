@@ -1,0 +1,7 @@
+package ldrcmnd;
+
+struct lidarCommand_t
+{
+	boolean motor;
+	boolean scan;
+}

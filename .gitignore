@@ -1,0 +1,12 @@
+/output/*
+*.a
+/sdk/output/*
+/build/*
+/protoCanary/build/*
+**/.DS_Store
+.vscode/*
+/snsrdata/*
+/ldrcmnd/*
+/mtrcmnd/*
+/xyzldr/*
+/snsrdata/*
