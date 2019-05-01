@@ -7,6 +7,7 @@
 CanaryReceiver receiver;
 
 void cleanExit(int plug){
+  receiver.saveData();
   receiver.disconnect();
   exit(0);
 }

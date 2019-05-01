@@ -9,6 +9,8 @@
 #include "mtrcmnd/motorCommand_t.hpp"
 #include "snsrdata/sensorData_t.hpp"
 #include "xyzLdr/xyzLidar_t.hpp"
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
 
 
 enum Command{
@@ -26,7 +28,9 @@ class CanaryReceiver{
     void update();
     const int PACKET_SIZE = 8;
     lcm::LCM lcm;
-    std::vector<xyzLdr::xyzLidar_t> points; 
+    std::vector<xyzLdr::xyzLidar_t> points;
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    void saveData();
     void handleSensor(const lcm::ReceiveBuffer* rbuf,
       const std::string& chan,
       const snsrdata::sensorData_t* msg);
@@ -40,6 +44,7 @@ class CanaryReceiver{
     volatile float robot_x;
     volatile float robot_y;
     volatile float robot_z;
+    int numSaves;
     int sendIndex;
     unsigned int lastSentMillis;
     void unpack(uint8_t* packet);

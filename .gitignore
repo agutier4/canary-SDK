@@ -1,6 +1,7 @@
 /output/*
 *.a
 /sdk/output/*
+/sdk/obj/*
 /build/*
 /protoCanary/build/*
 **/.DS_Store

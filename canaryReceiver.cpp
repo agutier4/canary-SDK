@@ -6,6 +6,7 @@ CanaryReceiver() : lcm("udpm://239.255.76.67:7667?ttl=1"){
   wiringPiSetup();
   lastSentMillis = millis();
   sendIndex = 0;
+  numSaves = 0;
 }
 
 bool
@@ -94,7 +95,7 @@ send(std::vector<xyzLdr::xyzLidar_t> pointsToSend){
   uint8_t* outPacket = new uint8_t[64];
   outPacket[0] = 0xF0; //set header
   outPacket[1] = (uint8_t)(pointsToSend.size()); //set numPoints
-  std::cout<< pointsToSend.size() <<std::endl;
+  //std::cout<< pointsToSend.size() <<std::endl;
   //lol sorry this got messy
   uint32_t *point_x;
   uint32_t *point_y;
@@ -131,21 +132,33 @@ update(){
   lcm.handleTimeout(.01); //check LCM messages
   if(millis()-lastSentMillis >= 20){
     lastSentMillis = millis();
-    if(sendIndex >= points.size()){
+    if(sendIndex >= cloud.size()){
       //All data has been written
-    }else if(points.size() - sendIndex >=5){
+    }else if(cloud.size() - sendIndex >=5){
       //Write full packet of 5 points
       std::vector<xyzLdr::xyzLidar_t> pointsToSend;
-      for(int i = sendIndex; i < sendIndex+5; i++)
-        pointsToSend.push_back(points.at(i));
+      for(int i = sendIndex; i < sendIndex+5; i++){
+	xyzLdr::xyzLidar_t temp;
+	temp.x = cloud.at(i).x;
+	temp.y = cloud.at(i).y;
+	temp.z = cloud.at(i).z;
+	pointsToSend.push_back(temp);
+        //pointsToSend.push_back(points.at(i));
+      }
       sendIndex +=5;
       send(pointsToSend);
     }else{
       //Send partial packet (1-4 points)
-      int numPoints = points.size() - sendIndex;
+      int numPoints = cloud.points.size() - sendIndex;
       std::vector<xyzLdr::xyzLidar_t> pointsToSend;
-      for(int i = sendIndex; i < sendIndex+numPoints; i++)
-      	pointsToSend.push_back(points.at(i));
+      for(int i = sendIndex; i < sendIndex+numPoints; i++){
+      	xyzLdr::xyzLidar_t temp;
+	temp.x = cloud.at(i).x;
+	temp.y = cloud.at(i).y;
+	temp.z = cloud.at(i).z;
+	pointsToSend.push_back(temp);
+        //pointsToSend.push_back(points.at(i));
+      }
       sendIndex += numPoints;
       send(pointsToSend);
     }
@@ -203,19 +216,32 @@ handleLidar(const lcm::ReceiveBuffer* rbuf,
   */
   //Calculate absolute position from robot position
   //TODO: the acutal conversion
+  /*
   xyzLdr::xyzLidar_t temp;
   temp.x = -1*msg->x;
   temp.y = robot_z;
   temp.z = -1* msg->y;
   temp.quality = msg->quality;
-
+  */
+  
   //Cap points at 25000 (1MB)
-  if(points.size()>=25000){
+  if(cloud.size()>=25000){
     //TODO:save points
-    points.clear();
-    sendIndex=0;
+    saveData();
   }
 
   //Add to current points
-  points.push_back(temp);
+  //points.push_back(temp);
+  cloud.push_back(pcl::PointXYZ(-1*msg->x,robot_z,-1*msg->y));
 };
+
+void 
+CanaryReceiver::
+saveData(){
+  std::string filename = "test_data_"+std::to_string(numSaves)+".pcd";
+  pcl::io::savePCDFileASCII(filename,cloud);
+  numSaves++;
+  cloud.clear();
+  sendIndex=0;
+}
+
