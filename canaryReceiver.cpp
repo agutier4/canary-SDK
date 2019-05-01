@@ -4,7 +4,15 @@ CanaryReceiver::
 CanaryReceiver() : lcm("udpm://239.255.76.67:7667?ttl=1"){
   received = new uint8_t[8];
   wiringPiSetup();
+  wiringPiSPISetup(0,1000000);
+  pinMode(ADC_CS, OUTPUT);
+  pinMode(PWR_PIN, OUTPUT);
+  pinMode(ERR_PIN, OUTPUT);
+  digitalWrite(PWR_PIN,LOW);
+  digitalWrite(ERR_PIN,LOW);
+  digitalWrite(ADC_CS,HIGH);
   lastSentMillis = millis();
+  lastVoltageMillis = millis();
   sendIndex = 0;
   numSaves = 0;
 }
@@ -12,7 +20,9 @@ CanaryReceiver() : lcm("udpm://239.255.76.67:7667?ttl=1"){
 bool
 CanaryReceiver::
 connect(){
-  return ((fd = serialOpen("/dev/ttyS0",57600))>0);
+  bool status = ((fd = serialOpen("/dev/ttyS0",57600))>0);
+  digitalWrite(PWR_PIN,status);
+  return status; 
 }
 
 bool
@@ -129,6 +139,21 @@ send(std::vector<xyzLdr::xyzLidar_t> pointsToSend){
 void
 CanaryReceiver::
 update(){
+  //check battery voltage
+  if(millis() - lastVoltageMillis >= 1000){
+    lastVoltageMillis = millis();
+    readVoltage();
+    if(batteryVoltage < 11.2){
+      //low battery
+      digitalWrite(ERR_PIN,HIGH);
+      mtrcmnd::motorCommand_t motor;
+      motor.motor = false;
+      motor.speed = 0;
+      motor.feedback = false;
+      std::cout << " motor";
+      lcm.publish("MOTOR_CMND",&motor);
+    }
+  }
   lcm.handleTimeout(.01); //check LCM messages
   if(millis()-lastSentMillis >= 20){
     lastSentMillis = millis();
@@ -183,6 +208,7 @@ update(){
 void
 CanaryReceiver::
 disconnect(){
+  digitalWrite(PWR_PIN,LOW);
   serialClose(fd);
 }
 
@@ -238,10 +264,25 @@ handleLidar(const lcm::ReceiveBuffer* rbuf,
 void 
 CanaryReceiver::
 saveData(){
-  std::string filename = "test_data_"+std::to_string(numSaves)+".pcd";
-  pcl::io::savePCDFileASCII(filename,cloud);
-  numSaves++;
-  cloud.clear();
-  sendIndex=0;
+  if(cloud.size()>0){
+    std::string filename = "test_data_"+std::to_string(numSaves)+".pcd";
+    pcl::io::savePCDFileASCII(filename,cloud);
+    numSaves++;
+    cloud.clear();
+    sendIndex=0;
+  }
 }
 
+void
+CanaryReceiver::
+readVoltage(){
+  unsigned char spiData[2];
+  spiData[0] = 0b11010000;
+  spiData[1] = 0x00;
+  digitalWrite(ADC_CS,LOW);
+  wiringPiSPIDataRW(0,spiData,2);
+  digitalWrite(ADC_CS,HIGH);
+
+  batteryVoltage = (((spiData[0] & 0x3) << 8 | spiData[1])/1023.0)*3.3*4.0303*MAGIC_NUMBER;
+  std::cout <<batteryVoltage <<std::endl;
+}

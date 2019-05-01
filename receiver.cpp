@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "xyzLdr/xyzLidar_t.hpp"
 #include "snsrdata/sensorData_t.hpp"
+#include "wiringPiSPI.h"
 
 CanaryReceiver receiver;
 
@@ -12,7 +13,7 @@ void cleanExit(int plug){
   exit(0);
 }
 
-int main(int argc, char** argv){
+int main(int argc, char** argv){ 
   if(!receiver.connect()){
     std::cout << "ERROR: Bad serial connection" <<std::endl;
     return 1;
