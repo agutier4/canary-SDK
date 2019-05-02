@@ -139,6 +139,7 @@ int main(){
   wiringPiISR(m0.encB, INT_EDGE_BOTH, &encB_0);
   wiringPiISR(m1.encA, INT_EDGE_BOTH, &encA_1);
   wiringPiISR(m1.encB, INT_EDGE_BOTH, &encB_1);
+  signal(SIGTERM,cleanExit);
   signal(SIGINT,cleanExit);
   
   //setup lcm

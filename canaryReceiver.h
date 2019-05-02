@@ -5,6 +5,7 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 #include <iostream>
+#include <stdio.h>
 #include <lcm/lcm-cpp.hpp>
 #include "ldrcmnd/lidarCommand_t.hpp"
 #include "mtrcmnd/motorCommand_t.hpp"
@@ -12,7 +13,9 @@
 #include "xyzLdr/xyzLidar_t.hpp"
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
-
+#include <dirent.h>
+#include <sys/types.h>
+#include <ctime>
 
 enum Command{
   COMMAND_NONE,
@@ -32,11 +35,14 @@ class CanaryReceiver{
     const int PACKET_SIZE = 8;
     const int PWR_PIN = 6;
     const int ERR_PIN = 26;
+    const int LS1_PIN = 4;
+    const int LS2_PIN = 5;
     lcm::LCM lcm;
     std::vector<xyzLdr::xyzLidar_t> points;
     pcl::PointCloud<pcl::PointXYZ> cloud;
     void saveData();
     void readVoltage();
+    void concatScans();
     void handleSensor(const lcm::ReceiveBuffer* rbuf,
       const std::string& chan,
       const snsrdata::sensorData_t* msg);

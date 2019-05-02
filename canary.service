@@ -1,0 +1,12 @@
+[Unit]
+Description=terrain scanning robot
+After=multi-user.target
+
+[Service]
+ExecStart=/bin/bash /home/canary/software/canary-SDK/run.sh
+WorkingDirectory=/home/canary/software/canary-SDK
+Restart=always
+User=canary
+
+[Install]
+WantedBy=multi-user.target

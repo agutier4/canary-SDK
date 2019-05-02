@@ -5,12 +5,17 @@ CanaryReceiver() : lcm("udpm://239.255.76.67:7667?ttl=1"){
   received = new uint8_t[8];
   wiringPiSetup();
   wiringPiSPISetup(0,1000000);
+
+  //Setup pinmodes
   pinMode(ADC_CS, OUTPUT);
   pinMode(PWR_PIN, OUTPUT);
   pinMode(ERR_PIN, OUTPUT);
+  pinMode(LS1_PIN, INPUT);
+  pinMode(LS2_PIN, INPUT);
   digitalWrite(PWR_PIN,LOW);
   digitalWrite(ERR_PIN,LOW);
   digitalWrite(ADC_CS,HIGH);
+
   lastSentMillis = millis();
   lastVoltageMillis = millis();
   sendIndex = 0;
@@ -41,9 +46,11 @@ unpack(uint8_t* packet){
   //Determine command options
   bool lidarOption = false;
   bool motorOption = false;
+  bool endOption = false;
 
   lidarOption = ((packet[2] & 0x10) == 0x10);
   motorOption = ((packet[2] & 0x04) == 0x04);
+  endOption = ((packet[2] & 0x40) == 0x40);
 	
   float motorSpeed;	
 
@@ -91,6 +98,10 @@ unpack(uint8_t* packet){
 	motor.feedback = false;
 	std::cout << " motor";
 	lcm.publish("MOTOR_CMND",&motor);
+	if(endOption){
+	  saveData();
+	  concatScans();
+	}
       }
       std::cout <<std::endl;
       break;
@@ -235,42 +246,63 @@ handleLidar(const lcm::ReceiveBuffer* rbuf,
     const std::string& chan,
     const xyzLdr::xyzLidar_t* msg)
 {
-  /*
-  std::cout << "x_pos: " << msg->x <<std::endl;
-  std::cout << "y_pos: " << msg->y <<std::endl;
-  std::cout << "z_pos: " << msg->z <<std::endl;
-  */
+  
   //Calculate absolute position from robot position
   //TODO: the acutal conversion
-  /*
-  xyzLdr::xyzLidar_t temp;
-  temp.x = -1*msg->x;
-  temp.y = robot_z;
-  temp.z = -1* msg->y;
-  temp.quality = msg->quality;
-  */
   
-  //Cap points at 25000 (1MB)
-  if(cloud.size()>=25000){
-    //TODO:save points
+  //Cap points at 250000 (10MB)
+  if(cloud.size()>=250000){
     saveData();
   }
 
   //Add to current points
-  //points.push_back(temp);
   cloud.push_back(pcl::PointXYZ(-1*msg->x,robot_z,-1*msg->y));
 };
 
 void 
 CanaryReceiver::
-saveData(){
+saveData()
+{
   if(cloud.size()>0){
-    std::string filename = "test_data_"+std::to_string(numSaves)+".pcd";
+    std::string filename = "/home/canary/scans/temp/temp_data_"+std::to_string(numSaves)+".pcd";
     pcl::io::savePCDFileASCII(filename,cloud);
     numSaves++;
     cloud.clear();
     sendIndex=0;
   }
+}
+
+void
+CanaryReceiver::
+concatScans(){
+  struct dirent *entry;
+  DIR *dir = opendir("/home/canary/scans/temp");
+
+  if(dir == NULL)
+    return;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
+  while ((entry = readdir(dir)) !=NULL){
+    if(!(strcmp(entry->d_name,".")==0) && !(strcmp(entry->d_name,"..")==0)){
+      //real file
+      pcl::PointCloud<pcl::PointXYZ>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZ>);
+      const std::string filename = "/home/canary/scans/temp/"+ std::string(entry->d_name);
+      if(pcl::io::loadPCDFile<pcl::PointXYZ> (filename, *tempCloud) == -1){
+        std::cout << "ERROR: oops, bad filename" <<std::endl;
+        return;
+      }
+      remove(filename.c_str());
+      *cloud += *tempCloud;
+      std::cout << entry->d_name << " loaded" <<std::endl;
+    }
+  }
+  if(cloud->size() > 0 ){
+    //write cloud
+    std::time_t t = std::time(0);
+    std::tm* now = std::localtime(&t);
+    const std::string bigFilename =  "/home/canary/scans/scan" + std::to_string(now->tm_mon+1) + std::to_string(now->tm_mday) +"_" + std::to_string(now->tm_hour) + std::to_string(now->tm_min)+".pcd";
+    pcl::io::savePCDFileASCII(bigFilename, *cloud);
+  }
+  closedir(dir);
 }
 
 void
@@ -286,3 +318,4 @@ readVoltage(){
   batteryVoltage = (((spiData[0] & 0x3) << 8 | spiData[1])/1023.0)*3.3*4.0303*MAGIC_NUMBER;
   std::cout <<batteryVoltage <<std::endl;
 }
+

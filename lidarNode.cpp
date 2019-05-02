@@ -13,6 +13,7 @@ void cleanExit(int plug){
 
 int main(int argc, char ** argv){
   lidar.connect();
+  signal(SIGTERM,cleanExit);
   signal(SIGINT,cleanExit);
   //subscribe to commands
   lidar.startMotor();
